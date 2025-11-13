@@ -1,47 +1,51 @@
 import re
-from transformers import pipeline
 
 class ContentModerator:
     def __init__(self):
-        # Load pre-trained model for toxic content detection
-        self.classifier = pipeline(
-            "text-classification", 
-            model="unitary/multilingual-toxic-xlm-roberta",
-            return_all_scores=True
-        )
-        
-        # Custom harmful content patterns
+        # Custom harmful content patterns - this is the CORE AI logic
         self.harmful_patterns = [
-            r'\b(kill|harm|hurt|violence|attack)\b',
+            r'\b(kill|harm|hurt|violence|attack|murder)\b',
             r'\b(hate|racist|sexist|discriminat)\b',
-            r'\b(terrorist|bomb|weapon|shoot)\b'
+            r'\b(terrorist|bomb|weapon|shoot|gun)\b',
+            r'\b(stupid|idiot|dumb|ugly|fat)\b',
+            r'\b(die|death|suicide)\b'
+        ]
+        
+        self.high_risk_patterns = [
+            r'\b(kill|murder|terrorist|bomb|suicide)\b',
+            r'\b(rape|assault|abuse)\b'
         ]
     
     def moderate_text(self, text):
-        """Analyze text for harmful content"""
+        """Analyze text for harmful content using pattern matching"""
+        
+        text_lower = text.lower()
         
         # Check for harmful patterns
         pattern_matches = []
+        high_risk_matches = []
+        
         for pattern in self.harmful_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
+            if re.search(pattern, text_lower):
                 pattern_matches.append(pattern)
         
-        # Use AI model for classification
-        try:
-            results = self.classifier(text[:512])  # Limit text length
-            toxic_score = 0
-            for result in results[0]:
-                if result['label'] in ['toxic', 'hate', 'insult', 'threat']:
-                    toxic_score = max(toxic_score, result['score'])
-        except:
-            toxic_score = 0
+        for pattern in self.high_risk_patterns:
+            if re.search(pattern, text_lower):
+                high_risk_matches.append(pattern)
         
-        # Determine final classification
-        is_unsafe = toxic_score > 0.7 or len(pattern_matches) > 0
+        # Calculate risk score
+        base_score = len(pattern_matches) * 0.2
+        high_risk_score = len(high_risk_matches) * 0.5
+        total_score = min(base_score + high_risk_score, 1.0)
+        
+        # Determine if unsafe
+        is_unsafe = total_score > 0.3 or len(high_risk_matches) > 0
         
         return {
             'is_unsafe': is_unsafe,
-            'toxic_score': round(toxic_score, 3),
+            'toxic_score': round(total_score, 3),
+            'confidence': max(total_score, 0.1),
             'pattern_matches': pattern_matches,
-            'confidence': max(toxic_score, 0.3)  # Minimum confidence for pattern matches
+            'high_risk_matches': high_risk_matches,
+            'risk_level': 'HIGH' if len(high_risk_matches) > 0 else 'MEDIUM' if is_unsafe else 'LOW'
         }
