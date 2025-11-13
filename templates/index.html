@@ -22,51 +22,54 @@
         <button onclick="analyzeText()">Analyze Content</button>
         
         <div id="result"></div>
-    </div>
 
-    <script>
-        function analyzeText() {
-            const text = document.getElementById('textInput').value;
-            const resultDiv = document.getElementById('result');
+        <script>
+            function analyzeText() {
+                const text = document.getElementById('textInput').value;
+                const resultDiv = document.getElementById('result');
+        
+                resultDiv.innerHTML = '<p>Analyzing...</p>';
+        
+                fetch('/moderate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        resultDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                        return;
+                    }
             
-            resultDiv.innerHTML = '<p>Analyzing...</p>';
-            
-            fetch('/moderate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    resultDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
-                    return;
-                }
-                
-                if (data.is_unsafe) {
-                    resultDiv.innerHTML = `
-                        <div class="result unsafe">
-                            <h3>🚫 UNSAFE CONTENT DETECTED</h3>
-                            <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
-                            <p><strong>Toxic Score:</strong> ${data.toxic_score}</p>
-                            ${data.pattern_matches.length > 0 ? 
-                                `<p><strong>Patterns Found:</strong> ${data.pattern_matches.join(', ')}</p>` : ''}
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="result safe">
-                            <h3>✅ CONTENT APPEARS SAFE</h3>
-                            <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
-                            <p><strong>Toxic Score:</strong> ${data.toxic_score}</p>
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                resultDiv.innerHTML = '<p style="color: red;">Error analyzing text</p>';
-            });
-        }
+                    if (data.is_unsafe) {
+                        resultDiv.innerHTML = `
+                            <div class="result unsafe">
+                                <h3>🚫 UNSAFE CONTENT DETECTED</h3>
+                                <p><strong>Risk Level:</strong> ${data.risk_level}</p>
+                                <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
+                                <p><strong>Toxic Score:</strong> ${data.toxic_score}</p>
+                                ${data.pattern_matches.length > 0 ? 
+                                    `<p><strong>Patterns Found:</strong> ${data.pattern_matches.length} harmful patterns detected</p>` : ''}
+                                ${data.high_risk_matches.length > 0 ? 
+                                    `<p><strong>⚠️ High Risk:</strong> ${data.high_risk_matches.length} severe threats detected</p>` : ''}
+                    </div>
+                `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="result safe">
+                                <h3>✅ CONTENT APPEARS SAFE</h3>
+                                <p><strong>Risk Level:</strong> ${data.risk_level}</p>
+                                <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%</p>
+                                <p><strong>Toxic Score:</strong> ${data.toxic_score}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = '<p style="color: red;">Error analyzing text</p>';
+                });
+            }
     </script>
 </body>
 </html>
